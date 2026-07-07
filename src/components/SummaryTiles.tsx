@@ -34,8 +34,24 @@ export function SummaryTiles({ m }: { m: PortfolioMetrics }) {
 
   return (
     <div className="tiles">
-      <Tile label="Invested" value={formatCurrency(m.totalInvested)} sub={`${m.depositCount} deposits`} />
-      <Tile label="Estimated value" value={formatCurrency(m.estimatedValue)} />
+      <Tile
+        label="Invested"
+        value={formatCurrency(m.totalInvested)}
+        sub={
+          m.totalWithdrawn > 0
+            ? `${m.depositCount} deposits · ${formatCurrency(m.totalWithdrawn)} withdrawn`
+            : `${m.depositCount} deposits`
+        }
+      />
+      <Tile
+        label="Estimated value"
+        value={formatCurrency(m.estimatedValue)}
+        sub={
+          m.totalDistributions > 0
+            ? `incl. ${formatCurrency(m.totalDistributions)} distributions reinvested`
+            : undefined
+        }
+      />
       <Tile
         label="Net gain"
         value={formatSignedCurrency(m.netGain)}

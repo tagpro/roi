@@ -93,6 +93,7 @@ function tx(over: Partial<Transaction>): Transaction {
     units: 50,
     unitPrice: 2,
     direction: 'in',
+    isDistribution: false,
     portfolio: 'P',
     ...over,
   };
@@ -141,6 +142,32 @@ describe('withdrawals and multi-portfolio roll-up', () => {
     expect(m.latestUnitPrice).toBe(4);
     expect(m.estimatedValue).toBe(320); // 80 * 4
     expect(m.netGain).toBe(180); // 320 + 60 - 200
+  });
+
+  it('counts distribution units in the holding but not in invested or XIRR flows', () => {
+    const txns: Transaction[] = [
+      tx({ effectiveDate: '2025-01-01', amount: 200, units: 100, unitPrice: 2, direction: 'in' }),
+      tx({
+        effectiveDate: '2025-07-01',
+        amount: 20,
+        units: 10,
+        unitPrice: 2,
+        direction: 'in',
+        isDistribution: true,
+      }),
+      tx({ effectiveDate: '2026-01-01', amount: 220, units: 100, unitPrice: 2.2, direction: 'in' }),
+    ];
+    const m = computePortfolioMetrics('P', txns);
+    expect(m.totalInvested).toBe(420); // distribution's $20 excluded
+    expect(m.totalDistributions).toBe(20);
+    expect(m.depositCount).toBe(2);
+    expect(m.unitsHeld).toBe(210); // distribution's units included
+    expect(m.estimatedValue).toBeCloseTo(210 * 2.2, 6);
+    // The distribution shows up as gain: 462 - 420 = 42, of which 20 was the
+    // reinvested distribution and 22 was price appreciation.
+    expect(m.netGain).toBeCloseTo(42, 6);
+    // XIRR must beat the pure price return because of the distribution.
+    expect(m.xirr).not.toBeNull();
   });
 
   it('rolls up multiple portfolios and reports each separately', () => {

@@ -69,8 +69,14 @@ Input columns (exact header):
 - Validate the header; if required columns are missing, fail with a friendly message naming
   the missing columns (this is how the app tells you a file belongs to a different provider).
 - `Unit Change Type`: "Units issued" → `direction: 'in'`; anything containing
-  "redeem"/"cancel" → `direction: 'out'` (defensive — this file only has buys, but real
-  exports can contain withdrawals).
+  "redeem"/"cancel" → `direction: 'out'`; anything else → skip the row with a warning.
+- **Sign normalization**: Spaceship exports redemptions with *negative* `Units` (e.g.
+  `Withdrawal, 1500.00, -1458.101455, Units redeemed`). Store `amount` and `units` as
+  absolute values — the sign lives in `direction` — and force `direction: 'out'` whenever
+  the raw units or amount are negative, whatever the Unit Change Type says. Feeding signed
+  values into the sum-based metrics double-counts withdrawals.
+- `Transaction Type` "Distribution" → `isDistribution: true`: reinvested earnings that issue
+  units without costing out-of-pocket money.
 - Skip blank lines. Collect (not throw) warnings for unparseable rows.
 
 ## Business logic (`logic/metrics.ts`) — all pure functions
@@ -84,9 +90,10 @@ Let `in` = transactions with direction 'in', `out` = direction 'out':
 
 | Metric | Definition |
 |---|---|
-| `totalInvested` | Σ amount over `in` |
+| `totalInvested` | Σ amount over `in` excluding distributions (out-of-pocket money only) |
 | `totalWithdrawn` | Σ amount over `out` |
-| `unitsHeld` | Σ units over `in` − Σ units over `out` |
+| `totalDistributions` | Σ amount over `in` distribution rows (part of the gain, not the cost) |
+| `unitsHeld` | Σ units over `in` (incl. distributions) − Σ units over `out` |
 | `latestUnitPrice` | unitPrice of the row with the max `effectiveDate` |
 | `estimatedValue` | `unitsHeld × latestUnitPrice` |
 | `netGain` | `estimatedValue + totalWithdrawn − totalInvested` |
@@ -97,8 +104,10 @@ Let `in` = transactions with direction 'in', `out` = direction 'out':
 
 ### XIRR
 
-Cash flows: each `in` row is `−amount` at its `effectiveDate`; each `out` row is `+amount`;
-terminal flow `+estimatedValue` at the latest `effectiveDate`.
+Cash flows: each out-of-pocket `in` row is `−amount` at its `effectiveDate`; each `out` row
+is `+amount`; terminal flow `+estimatedValue` at the latest `effectiveDate`. Distribution
+rows contribute **no** cash flow — they are internal reinvestment, and their payoff reaches
+the terminal value through the extra units they bought.
 
 `NPV(r) = Σ cf_i / (1+r)^(days_i/365)` with days measured from the earliest flow.
 Solve `NPV(r) = 0` by bisection on `r ∈ (−0.99, 10)`, ~200 iterations (monotone in that

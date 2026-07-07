@@ -73,6 +73,41 @@ describe('spaceship parser — row handling', () => {
     expect(transactions[1]!.direction).toBe('out');
   });
 
+  it('normalizes negative units on withdrawals (real export format) to positive + out', () => {
+    // Spaceship exports redemptions with NEGATIVE units.
+    const csv = [
+      HEADER,
+      '2023-11-12,Withdrawal,Paid,1500.00,-1458.101455,1.028735,Units redeemed,2023-11-14,P',
+    ].join('\n');
+    const { transactions } = spaceship.parse(csv);
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0]!.direction).toBe('out');
+    expect(transactions[0]!.units).toBeCloseTo(1458.101455, 6);
+    expect(transactions[0]!.amount).toBe(1500);
+  });
+
+  it('treats negative units as "out" even when Unit Change Type says issued', () => {
+    const csv = [
+      HEADER,
+      '2023-11-12,Adjustment,Paid,10.00,-5.0,2.0,Units issued,2023-11-13,P',
+    ].join('\n');
+    const { transactions } = spaceship.parse(csv);
+    expect(transactions[0]!.direction).toBe('out');
+    expect(transactions[0]!.units).toBe(5);
+  });
+
+  it('flags Distribution rows and keeps them as units in', () => {
+    const csv = [
+      HEADER,
+      '2026-07-02,Distribution,Paid,13.60,7.772325,1.750055,Units issued,2026-07-02,P',
+      '2026-07-01,Investment plan (weekly),Paid,25.00,14.187834,1.762073,Units issued,2026-07-02,P',
+    ].join('\n');
+    const { transactions } = spaceship.parse(csv);
+    expect(transactions[0]!.isDistribution).toBe(true);
+    expect(transactions[0]!.direction).toBe('in');
+    expect(transactions[1]!.isDistribution).toBe(false);
+  });
+
   it('warns on an unrecognised Unit Change Type', () => {
     const csv = [
       HEADER,

@@ -7,10 +7,11 @@ export interface Transaction {
   effectiveDate: string; // ISO yyyy-mm-dd — use this for time-based math
   type: string; // e.g. "Investment plan (weekly)"
   status: string; // e.g. "Paid"
-  amount: number; // AUD, positive as given in file
-  units: number; // units in the transaction
+  amount: number; // AUD, always >= 0; the sign lives in `direction`
+  units: number; // units in the transaction, always >= 0; sign lives in `direction`
   unitPrice: number; // price per unit at the transaction
-  direction: Direction; // derived from Unit Change Type
+  direction: Direction; // derived from Unit Change Type and the sign of Units
+  isDistribution: boolean; // reinvested earnings: units in, but no money out of pocket
   portfolio: string; // e.g. "Spaceship Universe Portfolio"
 }
 

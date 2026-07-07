@@ -42,7 +42,24 @@ export function generateNarrative(m: PortfolioMetrics): string[] {
     );
   }
 
-  // 2. Annualised (money-weighted) — only when computable.
+  // 2. External flows that make the headline less obvious: money taken out is
+  // still part of the outcome, and reinvested distributions are earnings.
+  if (m.totalWithdrawn > 0) {
+    sentences.push(
+      `Along the way you withdrew ${formatCurrency(
+        m.totalWithdrawn,
+      )}, which counts toward your total return.`,
+    );
+  }
+  if (m.totalDistributions > 0) {
+    sentences.push(
+      `That includes ${formatCurrency(
+        m.totalDistributions,
+      )} of distributions reinvested as extra units — earnings, not money out of your pocket.`,
+    );
+  }
+
+  // 3. Annualised (money-weighted) — only when computable.
   if (m.xirr !== null) {
     sentences.push(
       `That’s about ${formatSignedPercent(
@@ -51,7 +68,7 @@ export function generateNarrative(m: PortfolioMetrics): string[] {
     );
   }
 
-  // 3. Price move vs dollar-cost-averaging — the four sign combinations.
+  // 4. Price move vs dollar-cost-averaging — the four sign combinations.
   if (m.unitPriceChange !== null && m.simpleROI !== null) {
     const priceMove = m.unitPriceChange;
     const priceMag = formatSignedPercent(priceMove).replace(/^[+-]/, '');
@@ -76,7 +93,7 @@ export function generateNarrative(m: PortfolioMetrics): string[] {
     }
   }
 
-  // 4. Cost basis.
+  // 5. Cost basis.
   if (m.avgCostPerUnit !== null && m.latestUnitPrice !== null) {
     sentences.push(
       `Your average cost per unit is ${formatPrice(
@@ -85,7 +102,7 @@ export function generateNarrative(m: PortfolioMetrics): string[] {
     );
   }
 
-  // 5. Always-on caveat.
+  // 6. Always-on caveat.
   sentences.push(CAVEAT);
 
   return sentences;

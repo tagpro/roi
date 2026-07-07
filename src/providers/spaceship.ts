@@ -106,15 +106,24 @@ const spaceship: ProviderAdapter = {
         return;
       }
 
+      const type = (row['Transaction Type'] ?? '').trim();
+
       transactions.push({
         transactionDate,
         effectiveDate,
-        type: (row['Transaction Type'] ?? '').trim(),
+        type,
         status: (row['Status'] ?? '').trim(),
-        amount,
-        units,
+        // Spaceship exports redemptions with negative Units (and could do the
+        // same for Amount). Normalize to absolute values — the sign belongs to
+        // `direction`, and a negative value on an 'in' row means it is really
+        // an outflow whatever the Unit Change Type says.
+        amount: Math.abs(amount),
+        units: Math.abs(units),
         unitPrice,
-        direction,
+        direction: units < 0 || amount < 0 ? 'out' : direction,
+        // Distributions are reinvested earnings: they issue units but cost no
+        // out-of-pocket money, so the business logic treats them separately.
+        isDistribution: type.toLowerCase() === 'distribution',
         portfolio: (row['Portfolio'] ?? '').trim() || 'Unknown portfolio',
       });
     });

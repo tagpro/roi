@@ -4,9 +4,10 @@ export interface PortfolioMetrics {
   portfolio: string;
   paidCount: number;
   excludedCount: number;
-  totalInvested: number;
+  totalInvested: number; // out-of-pocket contributions only (excludes distributions)
   totalWithdrawn: number;
-  depositCount: number; // number of 'in' flows
+  totalDistributions: number; // reinvested earnings — part of the gain, not the cost
+  depositCount: number; // number of out-of-pocket 'in' flows
   unitsHeld: number;
   earliestUnitPrice: number | null;
   latestUnitPrice: number | null;
@@ -111,9 +112,13 @@ export function computePortfolioMetrics(
 
   const ins = paid.filter((t) => t.direction === 'in');
   const outs = paid.filter((t) => t.direction === 'out');
+  // Distributions issue units but cost nothing out of pocket: their units count
+  // toward the holding, their dollars do NOT count as "invested".
+  const contributions = ins.filter((t) => !t.isDistribution);
 
-  const totalInvested = ins.reduce((s, t) => s + t.amount, 0);
+  const totalInvested = contributions.reduce((s, t) => s + t.amount, 0);
   const totalWithdrawn = outs.reduce((s, t) => s + t.amount, 0);
+  const totalDistributions = ins.reduce((s, t) => s + (t.isDistribution ? t.amount : 0), 0);
   const unitsHeld = ins.reduce((s, t) => s + t.units, 0) - outs.reduce((s, t) => s + t.units, 0);
 
   const sorted = sortByEffective(paid);
@@ -133,8 +138,11 @@ export function computePortfolioMetrics(
       ? latestUnitPrice / earliestUnitPrice - 1
       : null;
 
+  // XIRR sees only external cash: contributions out of pocket and withdrawals.
+  // Reinvested distributions are internal — their payoff shows up in the
+  // terminal value through the extra units they bought.
   const flows: CashFlow[] = [
-    ...ins.map((t) => ({ date: t.effectiveDate, amount: -t.amount })),
+    ...contributions.map((t) => ({ date: t.effectiveDate, amount: -t.amount })),
     ...outs.map((t) => ({ date: t.effectiveDate, amount: t.amount })),
   ];
   if (latest) {
@@ -147,7 +155,8 @@ export function computePortfolioMetrics(
     excludedCount,
     totalInvested,
     totalWithdrawn,
-    depositCount: ins.length,
+    totalDistributions,
+    depositCount: contributions.length,
     unitsHeld,
     earliestUnitPrice,
     latestUnitPrice,

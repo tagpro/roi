@@ -9,6 +9,7 @@ function metrics(over: Partial<PortfolioMetrics>): PortfolioMetrics {
     excludedCount: 0,
     totalInvested: 1000,
     totalWithdrawn: 0,
+    totalDistributions: 0,
     depositCount: 10,
     unitsHeld: 400,
     earliestUnitPrice: 2.5,
